@@ -1,0 +1,94 @@
+package ca.stepwisegamestudios.aarden.commands;
+
+import ca.stepwisegamestudios.aarden.Horsetopia;
+import ca.stepwisegamestudios.aarden.language.LanguageManager;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandExecutor;
+import org.bukkit.command.CommandSender;
+import org.bukkit.OfflinePlayer;
+import org.bukkit.entity.Player;
+
+public class HorseCommand implements CommandExecutor {
+
+    @Override
+    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        Horsetopia plugin = Horsetopia.getInstance();
+        LanguageManager lang = plugin.getLang();
+        OfflinePlayer audience = sender instanceof Player senderPlayer ? senderPlayer : null;
+
+        if (args.length == 0) {
+            lang.send(sender, audience, "messages.horse-usage");
+            return true;
+        }
+
+        String subcommand = args[0].toLowerCase();
+        plugin.debugLog("HORSE_COMMAND", "RECEIVED", true,
+                "Sender=" + sender.getName() + ", subcommand=" + subcommand);
+
+        if (subcommand.equals("reload")) {
+            if (!sender.hasPermission("betterhorses.reload")) {
+                lang.sendFormatted(sender, audience, "messages.insufficient-permission", "%command%", "/horse reload");
+                plugin.debugLog("HORSE_COMMAND", "RELOAD_PERMISSION", false,
+                        "Sender " + sender.getName() + " lacks betterhorses.reload");
+                return true;
+            }
+
+            plugin.reloadPluginConfiguration();
+            lang.send(sender, audience, "messages.config-reloaded");
+            plugin.debugLog("HORSE_COMMAND", "RELOAD", true,
+                    "Configuration reloaded by " + sender.getName());
+            return true;
+        }
+
+        if (!(sender instanceof Player player)) {
+            lang.send(sender, audience, "messages.only-players");
+            plugin.debugLog("HORSE_COMMAND", "PLAYER_REQUIRED", false,
+                    "Non-player sender tried subcommand " + subcommand);
+            return true;
+        }
+
+        switch (subcommand) {
+            case "spawn":
+                if (!player.hasPermission("betterhorses.base")) {
+                    lang.sendFormatted(player, "messages.insufficient-permission", "%command%", "/horse spawn");
+                    plugin.debugLog("HORSE_COMMAND", "SPAWN_PERMISSION", false,
+                            "Player " + player.getName() + " lacks betterhorses.base");
+                    return true;
+                }
+                return RespawnCommand.spawnHorseFromItem(player);
+
+            case "despawn":
+                if (!player.hasPermission("betterhorses.base")) {
+                    lang.sendFormatted(player, "messages.insufficient-permission", "%command%", "/horse despawn");
+                    plugin.debugLog("HORSE_COMMAND", "DESPAWN_PERMISSION", false,
+                            "Player " + player.getName() + " lacks betterhorses.base");
+                    return true;
+                }
+                return DespawnCommand.despawnHorseToItem(player);
+
+            case "neuter":
+                if (!player.hasPermission("betterhorses.neuter")) {
+                    lang.sendFormatted(player, "messages.insufficient-permission", "%command%", "/horse neuter");
+                    plugin.debugLog("HORSE_COMMAND", "NEUTER_PERMISSION", false,
+                            "Player " + player.getName() + " lacks betterhorses.neuter");
+                    return true;
+                }
+                return HorseNeuterCommand.handle(player);
+
+            case "info":
+                if (!plugin.isDebugModeEnabled()) {
+                    lang.send(player, "messages.unknown-subcommand");
+                    plugin.debugLog("HORSE_COMMAND", "INFO_DEBUG_DISABLED", false,
+                            "Player " + player.getName() + " used /horse info while debug mode is disabled.");
+                    return true;
+                }
+                return HorseInfoCommand.handle(player);
+
+            default:
+                lang.send(player, "messages.unknown-subcommand");
+                plugin.debugLog("HORSE_COMMAND", "UNKNOWN_SUBCOMMAND", false,
+                        "Player " + player.getName() + " used unknown subcommand: " + subcommand);
+                return true;
+        }
+    }
+}

@@ -1,0 +1,105 @@
+package ca.stepwisegamestudios.aarden.listeners;
+
+import ca.stepwisegamestudios.aarden.Horsetopia;
+import ca.stepwisegamestudios.aarden.language.LanguageManager;
+import ca.stepwisegamestudios.aarden.traits.TraitRegistry;
+import ca.stepwisegamestudios.aarden.utils.SupportedMountType;
+import org.bukkit.NamespacedKey;
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.entity.AbstractHorse;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.entity.HorseJumpEvent;
+import org.bukkit.event.vehicle.VehicleExitEvent;
+import org.bukkit.metadata.FixedMetadataValue;
+import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.scheduler.BukkitRunnable;
+
+import java.util.HashSet;
+import java.util.Set;
+
+public class HorseJumpListener implements Listener {
+
+    private final Set<AbstractHorse> airborneHorses = new HashSet<>();
+    private final FileConfiguration config = Horsetopia.getInstance().getConfig();
+    private final LanguageManager lang = Horsetopia.getInstance().getLang();
+    private final NamespacedKey traitKey = new NamespacedKey(Horsetopia.getInstance(), "trait");
+
+    @EventHandler
+    public void onHorseJump(HorseJumpEvent event) {
+        if (!(event.getEntity() instanceof AbstractHorse horse)) return;
+        if (!SupportedMountType.isSupported(horse)) return;
+        if (hasHeavenHoovesTrait(horse)) {
+            Entity rider = horse.getPassengers().get(0);
+            if (rider instanceof Player player) {
+                TraitRegistry.activateHeavenHooves(player, horse, event);
+            }
+        }
+        if (!hasSkyburstTrait(horse)) return;
+        if (horse.hasMetadata("SkyburstCandidate")) return;
+
+        horse.setMetadata("SkyburstCandidate", new FixedMetadataValue(Horsetopia.getInstance(), true));
+        airborneHorses.add(horse);
+
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (!horse.isValid()) {
+                    clear(horse);
+                    return;
+                }
+
+                // Wait for landing
+                new BukkitRunnable() {
+                    @Override
+                    public void run() {
+                        if (!horse.isValid()) {
+                            clear(horse);
+                            cancel();
+                            return;
+                        }
+
+                        if (horse.isOnGround()) {
+                            if (!horse.getPassengers().isEmpty()) {
+                                Entity rider = horse.getPassengers().get(0);
+                                if (rider instanceof Player player) {
+                                    TraitRegistry.activateSkyburst(player, horse);
+                                }
+                            }
+                            clear(horse);
+                            cancel();
+                        }
+                    }
+                }.runTaskTimer(Horsetopia.getInstance(), 0L, 2L);
+            }
+        }.runTaskLater(Horsetopia.getInstance(), 1L);
+    }
+
+    private void clear(AbstractHorse horse) {
+        horse.removeMetadata("SkyburstCandidate", Horsetopia.getInstance());
+        airborneHorses.remove(horse);
+    }
+
+    private boolean hasSkyburstTrait(AbstractHorse horse) {
+        if (!horse.getPersistentDataContainer().has(traitKey, PersistentDataType.STRING)) return false;
+        String trait = horse.getPersistentDataContainer().get(traitKey, PersistentDataType.STRING);
+        return "skyburst".equalsIgnoreCase(trait) && config.getBoolean("traits.skyburst.enabled", true);
+    }
+
+    private boolean hasHeavenHoovesTrait(AbstractHorse horse) {
+        if (!horse.getPersistentDataContainer().has(traitKey, PersistentDataType.STRING)) return false;
+        String trait = horse.getPersistentDataContainer().get(traitKey, PersistentDataType.STRING);
+        return "heavenhooves".equalsIgnoreCase(trait) && config.getBoolean("traits.heavenhooves.enabled", true);
+    }
+
+    @EventHandler
+    public void onDismount(VehicleExitEvent event) {
+        if (event.getVehicle() instanceof AbstractHorse horse) {
+            if (SupportedMountType.isSupported(horse)) {
+                clear(horse);
+            }
+        }
+    }
+}

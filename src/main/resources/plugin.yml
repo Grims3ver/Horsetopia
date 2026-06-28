@@ -1,0 +1,36 @@
+name: Horsetopia
+main: ca.stepwisegamestudios.aarden.Horsetopia
+version: 1.0
+api-version: 26.2
+softdepend: [ ProtocolLib, PlaceholderAPI ]
+
+commands:
+  horse:
+    description: Manage horse actions like spawn and despawn
+    usage: /<command> <spawn|despawn|neuter>
+    permission: betterhorses.base
+
+  horsecreate:
+    description: Create a custom horse item
+    usage: /horsecreate <health> <speed> <jump> [gender] [name] [trait] [growth] [mounttype]
+    permission: betterhorses.create
+
+permissions:
+  betterhorses.base:
+    description: Allows using the /horse spawn|despawn command
+    default: true
+
+  betterhorses.neuter:
+    description: Allows using the /horse neuter command
+    default: true
+
+  betterhorses.create:
+    description: Allows using /horsecreate
+    default: op
+
+  betterhorses.reload:
+    description: Allows reloading the BetterHorses configuration
+    default: op
+
+  betterhorses.bypass:
+    description: Allows riding horses of other players
